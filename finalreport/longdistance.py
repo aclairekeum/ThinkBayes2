@@ -18,7 +18,7 @@ import thinkbayes2
 import thinkplot
 
 class LDR(object):
-    """Represents the distribution of probability of LDR to break up"""
+    """Relaionship between Meeting and Text/call in LDR"""
 
     def __init__(self, hypo1, num_meet, hypo2, textcall):
         
@@ -64,12 +64,12 @@ class Meeting(Suite):
 
 
     def Prob_MeetUp(self, rem_time, meetups):
-        """Computes the likelihood of breaking up"""
+        """Computes the likelihood of Meet up"""
         
         metapmf = thinkbayes2.Pmf()
         for lam, prob in self.Items():
             lt = lam*rem_time / 30
-            pred = thinkbayes2.MakePoissonPmf(lt, 5)
+            pred = thinkbayes2.MakePoissonPmf(lt, 4)
             metapmf[pred] = prob
         
         mix = thinkbayes2.MakeMixture(metapmf)
@@ -106,25 +106,25 @@ def main(script):
     hypos =  numpy.linspace(0,30,150)
     couple = Meeting(hypos)
 
-    mean_meetup = 1.5 /2
+    mean_meetup = 1.5
     mean_meetperiod = 30/mean_meetup
 
     couple.Update(mean_meetperiod)
     thinkplot.Pdf(couple, label= 'prior')
     print('prior mean', couple.Mean())
 
-    couple.Update(2)
+    couple.Update(17)
     thinkplot.Pdf(couple,label= 'posterior1')
-    couple.Update(4)
-    thinkplot.Pdf(couple, label= 'posterior2')
+
     thinkplot.show()
 
-    couple.Prob_MeetUp(30-16, 2)
+    couple.Prob_MeetUp(30-16, 1)
 
     hypos2 = numpy.linspace(0,30,150)
     couple2 = TextCall(hypos2)
 
-    mean_textcall = 12/2
+
+    mean_textcall = 12
     mean_textcall_period = 30/mean_textcall
 
     couple2.Update(mean_textcall_period)
@@ -138,9 +138,9 @@ def main(script):
     couple2.Update(8)
     thinkplot.Cdf(couple2, label= 'posterior3')
     couple2.Update(13)
-    thinkplot.Cdf(couple2, label= 'posterior3')
+    thinkplot.Cdf(couple2, label= 'posterior4')
     couple2.Update(16)
-    thinkplot.Cdf(couple2, label= 'posterior3')
+    thinkplot.Cdf(couple2, label= 'posterior5')
     thinkplot.show()
 
     couple2.Prob_TextCall(30-16, 5)
