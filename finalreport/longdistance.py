@@ -7,6 +7,7 @@ License: GNU GPLv3 http://www.gnu.org/licenses/gpl.html
 
 from __future__ import print_function, division
 from thinkbayes2 import Suite
+from thinkbayes2 import Pdf
 import math
 import numpy
 import sys
@@ -106,7 +107,7 @@ def main(script):
     hypos =  numpy.linspace(0,30,150)
     couple = Meeting(hypos)
 
-    mean_meetup = 1.5
+    mean_meetup = 3/2
     mean_meetperiod = 30/mean_meetup
 
     couple.Update(mean_meetperiod)
@@ -116,15 +117,16 @@ def main(script):
     couple.Update(17)
     thinkplot.Pdf(couple,label= 'posterior1')
 
-    thinkplot.show()
-
+    thinkplot.show(xlabel='Meeting', 
+                   ylabel='Probability of meeting')
+   
     couple.Prob_MeetUp(30-16, 1)
 
     hypos2 = numpy.linspace(0,30,150)
     couple2 = TextCall(hypos2)
 
 
-    mean_textcall = 12
+    mean_textcall = 12/2
     mean_textcall_period = 30/mean_textcall
 
     couple2.Update(mean_textcall_period)
@@ -141,11 +143,14 @@ def main(script):
     thinkplot.Cdf(couple2, label= 'posterior4')
     couple2.Update(16)
     thinkplot.Cdf(couple2, label= 'posterior5')
-    thinkplot.show()
-
-    couple2.Prob_TextCall(30-16, 5)
+    thinkplot.show(xlabel='calltext', 
+                   ylabel='Probability of calltext')
    
+    couple2.Prob_TextCall(30-16, 5)
+
     Pair = LDR(hypos, mean_meetperiod, hypos2, mean_textcall_period)
     Pair.GetJoint()
+
+
 if __name__ == '__main__':
     main(*sys.argv)
