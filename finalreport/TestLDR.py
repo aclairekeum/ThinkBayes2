@@ -20,10 +20,8 @@ class LDR(thinkbayes2.Suite, thinkbayes2.Joint):
 			talks = row[1]
 			breakup = row[0]
 			log_breakup_odds = beta0 + beta1 * meetups + beta2 * talks
-			breakup_prob = logo_to_p(log_breakup_odds, 0.5)
-			error = breakup - breakup_prob
-			total_likelihood *= thinkbayes2.EvalNormalPdf(error, mu=0, sigma=sigma)
-			return total_likelihood
+			breakup_prob = logo_to_p(log_breakup_odds, Prior_Probability)
+			return brekakup_prob
 
 def makedata(filename):
 	"Returns dataframe from csv file"
@@ -48,11 +46,11 @@ def pmf_from_data(filename, params):
 	b1 = params[1]
 	b2 = params[2]
 
-	est_range = 0.05
-	b0hypos = np.linspace(b0*(1-est_range), b0*(1+est_range),10)
-	b1hypos = np.linspace(b1*(1-est_range), b1*(1+est_range),10)
-	b2hypos = np.linspace(b2*(1-est_range), b2*(1+est_range),10)
-	sigmahypos = np.linspace(0.001,0.05,10)
+	est_range = 2
+	b0hypos = np.linspace(b0*(1-est_range), b0*(1+est_range),20)
+	b1hypos = np.linspace(b1*(1-est_range), b1*(1+est_range),20)
+	b2hypos = np.linspace(b2*(1-est_range), b2*(1+est_range),20)
+	sigmahypos = np.linspace(0.001,0.05,20)
 
 	hypos = [(b0hypo,b1hypo,b2hypo,sigmahypo) for b0hypo in b0hypos for b1hypo in b1hypos for b2hypo in b2hypos for sigmahypo in sigmahypos]
 	ldr_pmf = LDR(hypos)
@@ -69,14 +67,31 @@ def main(script):
 	results = smf.logit(formula, data=df).fit()
 	print results.summary()
 
+	actual = (df.relationship==1).astype(int)
+	print actual.mean()
+	predict = (results.predict() >= 0.5)
+	true_pos= predict*actual
+	true_neg = (1-predict) * (1-actual)
+	acc=  (sum(true_pos) + sum(true_neg))/len(actual)
+	print acc
+
 	beta[0] = results.params['Intercept']
 	beta[1] = results.params['meet']
 	beta[2] = results.params['talk']
 
 	ldr_pmf = pmf_from_data(LDRcsv,beta)
+	columns = ['relationship','meet','talk']
+	data = [[1,0.26,3]]
+	new = pd.DataFrame(data, columns=columns)
+	ldr_pmf.Update(new)
+
+	predict = (results.predict() >= 0.5)
+	true_pos= predict*actual
+	true_neg = (1-predict) * (1-actual)
+	acc=  (sum(true_pos) + sum(true_neg))/len(actual)
+	print acc
 
 	"The code below was taken from cypressf/thinkbayes2 to calculate and plot the maximum Likelihood"
-
 	maximum_likelihoods = [0, 0, 0, 0]
 	for title, i in [('b0', 0), ('b1', 1), ('b2', 2),('sigma',3)]:
 		marginal = ldr_pmf.Marginal(i)
@@ -84,6 +99,7 @@ def main(script):
 		thinkplot.Hist(marginal)
 		plt.title("PMF for " + title)
 		plt.show()
+
 
 if __name__ == '__main__':
     import sys
