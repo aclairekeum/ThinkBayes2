@@ -47,7 +47,7 @@ def makedata(filename):
 def logo_to_p(logo):
 	"Converts log odds to probability"
 	o = np.exp(logo)
-	p = (o + 1)/2
+	p = o / (1+o)
 	# prior_odds = prior_p/(1-prior_p)
 	# post_odds = prior_odds * o
 	# p = post_odds/(post_odds+1)
