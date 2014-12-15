@@ -26,7 +26,7 @@ class LDR(thinkbayes2.Suite, thinkbayes2.Joint):
 			meetups = row[2]
 			talks = row[1]
 			breakup = row[0]
-			log_breakup_odds = beta0 + beta1 * meetups + beta2 * talks
+			log_breakup_odds = beta0 + beta1 * meetups + beta2 * talks + sigma
 			breakup_prob = logo_to_p(log_breakup_odds)
 
 		#Get the likelihood by comparing with the result: brokeup/didn't break up
@@ -68,7 +68,7 @@ def pmf_from_data(filename, params):
 	b0hypos = np.linspace(b0*(1-b0est_range), b0*(1+b0est_range),20)
 	b1hypos = np.linspace(b1*(1-b1est_range), b1*(1+b1est_range),20)
 	b2hypos = np.linspace(b2*(1-b2est_range), b2*(1+b2est_range),20)
-	sigmahypos = np.linspace(0.001,0.05,40)
+	sigmahypos = np.linspace(0.001,0.05,20)
 
 	hypos = [(b0hypo,b1hypo,b2hypo,sigmahypo) for b0hypo in b0hypos for b1hypo in b1hypos for b2hypo in b2hypos for sigmahypo in sigmahypos]
 	ldr_pmf = LDR(hypos)
@@ -76,6 +76,31 @@ def pmf_from_data(filename, params):
 
 	return ldr_pmf
 
+def modelaccuracy_with_fixedbeta(dataset,betas_mean):
+	beta0 = betas_mean[0]
+	beta1 = betas_mean[1]
+	beta2 = betas_mean[2]
+	sigma = betas_mean[3]
+	correct = 0 
+	incorrect = 0
+	percentage = 0
+	for i, row in enumerate(dataset.values): 
+			meetups = row[2]
+			talks = row[1]
+			breakup = row[0]
+			log_breakup_odds = beta0 + beta1 * meetups + beta2 * talks + sigma
+			breakup_prob = logo_to_p(log_breakup_odds)
+
+			print breakup_prob
+			if breakup_prob<0.5 and breakup==0:
+				correct+=1
+			elif breakup_prob>0.5 and breakup==1:
+				correct+=1
+			else:
+				incorrect+=1
+
+	return 1.00* correct/i
+	
 def main(script):
 
 	beta = [0, 0, 0]
@@ -110,11 +135,31 @@ def main(script):
 
 	print ldr_pmf.ProbGreater(0.5)
 
-
 	#Updates the data-driven model with the test set
 	Testdf = makedata('test_ldr.csv')
 	ldr_pmf.Update(Testdf)
 	
+	#Getting the mean value of betas
+	i=0
+	# b0, b1, b2, sig
+	params = [0,0,0,0]
+	mean_params = [0,0,0,0]
+	for values in ldr_pmf:
+		params[0] += values[0]
+		params[1] += values[1]
+		params[2] += values[2]
+		params[3] += values[3]
+		i+=1
+
+	mean_params[0] = params[0]/i
+	mean_params[1] = params[1]/i
+	mean_params[2] = params[2]/i
+	mean_params[3] = params[3]/i
+
+	print modelaccuracy_with_fixedbeta(Testdf, mean_params)
+
+	#Comparing with the test 
+
 if __name__ == '__main__':
     import sys
     main(*sys.argv)
