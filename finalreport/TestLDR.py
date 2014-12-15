@@ -54,7 +54,7 @@ def logo_to_p(logo):
 
 	return p
 
-def pmf_from_data(filename, params):
+def pmf_from_data(filename, params,err_range):
 	"Returns PMF with the list of hypothesis"
 	LDRdf = makedata(filename)
 
@@ -62,13 +62,14 @@ def pmf_from_data(filename, params):
 	b1 = params[1]
 	b2 = params[2]
 
-	b0est_range = 2.5
-	b1est_range = 0.2
-	b2est_range = 5
-	b0hypos = np.linspace(b0*(1-b0est_range), b0*(1+b0est_range),20)
-	b1hypos = np.linspace(b1*(1-b1est_range), b1*(1+b1est_range),20)
-	b2hypos = np.linspace(b2*(1-b2est_range), b2*(1+b2est_range),20)
-	sigmahypos = np.linspace(0.001,0.05,20)
+	b0est_range = 4*err_range[0]	
+	b1est_range = 4*err_range[1]	
+	b2est_range = 4*err_range[2]	
+
+	b0hypos = np.linspace(b0-b0est_range, b0+b0est_range,30)
+	b1hypos = np.linspace(b1-b1est_range, b1+b1est_range,30)
+	b2hypos = np.linspace(b2-b2est_range, b2+b2est_range,30)
+	sigmahypos = np.linspace(0.001,0.01,30)
 
 	hypos = [(b0hypo,b1hypo,b2hypo,sigmahypo) for b0hypo in b0hypos for b1hypo in b1hypos for b2hypo in b2hypos for sigmahypo in sigmahypos]
 	ldr_pmf = LDR(hypos)
@@ -76,11 +77,41 @@ def pmf_from_data(filename, params):
 
 	return ldr_pmf
 
-def modelaccuracy_with_fixedbeta(dataset,betas_mean):
+
+def modelaccuracy_with_fixed(dataset,betas_fixed):
+	'Sees the model accuracy with fixed data'
+	beta0 = betas_fixed[0]
+	beta1 = betas_fixed[0]
+	beta2 = betas_fixed[0]
+	sigma = betas_fixed[0]
+
+	correct = 0 
+	incorrect = 0
+	percentage = 0
+	for i, row in enumerate(dataset.values): 
+			meetups = row[2]
+			talks = row[1]
+			breakup = row[0]
+			log_breakup_odds = beta0 + beta1 * meetups + beta2 * talks + sigma
+			breakup_prob = logo_to_p(log_breakup_odds)
+
+			#print breakup_prob
+			if breakup_prob<0.5 and breakup==0:
+				correct+=1
+			elif breakup_prob>0.5 and breakup==1:
+				correct+=1
+			else:
+				incorrect+=1
+
+	return 1.00* correct/i
+
+def modelaccuracy_with_betamean(dataset,betas_mean):
+	'Sees the model accuracy with fixed data'
 	beta0 = betas_mean[0]
 	beta1 = betas_mean[1]
 	beta2 = betas_mean[2]
 	sigma = betas_mean[3]
+
 	correct = 0 
 	incorrect = 0
 	percentage = 0
@@ -100,11 +131,12 @@ def modelaccuracy_with_fixedbeta(dataset,betas_mean):
 				incorrect+=1
 
 	return 1.00* correct/i
+
 	
 def main(script):
 
 	beta = [0, 0, 0]
-
+	std_err = [0, 0, 0]
 	df = makedata(LDRcsv)
 	formula = 'relationship ~ meet+talk'
 	results = smf.logit(formula, data=df).fit()
@@ -115,6 +147,10 @@ def main(script):
 	beta[1] = results.params['meet']
 	beta[2] = results.params['talk']
 
+	std_err[0] = results.bse['Intercept']
+	std_err[1] = results.bse['meet']
+	std_err[2] = results.bse['talk']
+
 	# predict = (results.predict() >= 0.5)
 	# true_pos= predict*actual
 	# true_neg = (1-predict) * (1-actual)
@@ -122,22 +158,24 @@ def main(script):
 	# print acc
 
 	#Create PMFs from dataset
-	ldr_pmf = pmf_from_data(LDRcsv,beta)
+	ldr_pmf = pmf_from_data(LDRcsv,beta,std_err)
 
 	#The code below was taken from cypressf/thinkbayes2 to calculate and plot the maximum Likelihood
-	maximum_likelihoods = [0, 0, 0, 0]
-	for title, i in [('b0', 0), ('b1', 1), ('b2', 2),('sigma',3)]:
-		marginal = ldr_pmf.Marginal(i)
-		maximum_likelihoods[i] = marginal.MaximumLikelihood()
-		thinkplot.Hist(marginal)
-		plt.title("PMF for " + title)
+	# maximum_likelihoods = [0, 0, 0, 0]
+	# for title, i in [('b0', 0), ('b1', 1), ('b2', 2),('sigma',3)]:
+	# 	marginal = ldr_pmf.Marginal(i)
+	# 	maximum_likelihoods[i] = marginal.MaximumLikelihood()
+	# 	thinkplot.Hist(marginal)
+	# 	plt.title("PMF for " + title)
+	# 	plt.show()
 
 
-	print ldr_pmf.ProbGreater(0.5)
-
+	# thinkplot.Hist(ldr_pmf)
+	# plt.title("PMF of likelihood")
+	
 	#Updates the data-driven model with the test set
 	Testdf = makedata('test_ldr.csv')
-	ldr_pmf.Update(Testdf)
+	# ldr_pmf.Update(Testdf)
 	
 	#Getting the mean value of betas
 	i=0
@@ -155,9 +193,10 @@ def main(script):
 	mean_params[1] = params[1]/i
 	mean_params[2] = params[2]/i
 	mean_params[3] = params[3]/i
+	print mean_params
 
-	print modelaccuracy_with_fixedbeta(Testdf, mean_params)
-
+	print modelaccuracy_with_betamean(Testdf, mean_params)
+	print modelaccuracy_with_fixed(Testdf, beta)
 	#Comparing with the test 
 
 if __name__ == '__main__':
